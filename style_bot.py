@@ -59,7 +59,7 @@ class StyleFilter(filters.MessageFilter):
         return False
 
 
-def handle_transfer(image: Image, style: str, device: torch.device, imsize: int):
+def handle_transfer(image: Image, style: str, device: torch.device):
     torch.set_default_device(device)
     saved_size = image.size
 
@@ -69,7 +69,7 @@ def handle_transfer(image: Image, style: str, device: torch.device, imsize: int)
 
     input_transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Resize(size=imsize, antialias=True),
+        transforms.Resize(size=256, antialias=True),
         transforms.Normalize(
             mean=torch.tensor([0.5, 0.5, 0.5]),
             std=torch.tensor([0.5, 0.5, 0.5])
@@ -104,30 +104,22 @@ async def style_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     logging.info('Handling style transfer for chat %s.', update.effective_chat.id)
     loop = asyncio.get_running_loop()
-    result_img = await loop.run_in_executor(PROC_POOL,
-                                            handle_transfer, image, style, TORCH_DEVICE, TORCH_IMSIZE)
+    result_img = await loop.run_in_executor(context.bot_data['proc_pool'],
+                                            handle_transfer, image, style, context.bot_data['device'])
 
     await update.effective_chat.send_photo(PIL_to_bytes(result_img))
 
 
 
 
-TORCH_DEVICE = torch.device('cpu')
-TORCH_IMSIZE = 128
-PROC_POOL = ProcessPoolExecutor()
-def setup_pytorch(max_workers: int = 1) -> None:
-    global TORCH_DEVICE
-    global TORCH_IMSIZE
-    global PROC_POOL
-    
-    TORCH_DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    TORCH_IMSIZE = 256 if torch.cuda.is_available() else 128
-    torch.set_default_device(TORCH_DEVICE)
+def setup_pytorch(bot_data: dict) -> None:
+    bot_data['device'] = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    torch.set_default_device(bot_data['device'])
 
-    logging.info("Torch device is %s, image size for processing set to %i", TORCH_DEVICE, TORCH_IMSIZE)
+    logging.info("Torch device is %s", bot_data['device'].type)
 
     mp_context = get_context('spawn')
-    PROC_POOL = ProcessPoolExecutor(max_workers=max_workers, mp_context=mp_context)
+    bot_data['proc_pool'] = ProcessPoolExecutor(max_workers=2, mp_context=mp_context)
     
 def PIL_to_bytes(image: Image) -> io.BytesIO:
     bio = io.BytesIO()
@@ -178,12 +170,11 @@ def main() -> None:
         return
 
     setup_logging()
-    setup_pytorch()
-
 
     bot_token = os.environ['TG_BOT_TOKEN']
     application = ApplicationBuilder().token(bot_token).build()
 
+    setup_pytorch(application.bot_data)
 
     start_handler = CommandHandler('start', start_command)
     help_handler = CommandHandler('help', help_command)
