@@ -133,3 +133,6 @@ class Discriminator(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+
+def denormalize(image):
+    return image*0.5 + 0.5

@@ -10,7 +10,7 @@ import dotenv
 from telegram.ext._utils.types import FilterDataDict
 import torch
 import torchvision.transforms as transforms
-from stylegan.networks import Generator
+from stylegan.networks import Generator, denormalize
 from PIL import Image
 
 
@@ -22,7 +22,7 @@ from telegram.ext import (
 
 
 welcome_message = """
-Welcome to styleBot. Type /style_transfer to begin. Type /help for more info.
+Welcome to GANStyleBot. Type /help for more info.
 """
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
@@ -58,8 +58,30 @@ class StyleFilter(filters.MessageFilter):
             return bool(re.search(self.pattern, message.caption))
         return False
 
+
 def handle_transfer(image: Image, style: str, device: torch.device, imsize: int):
-    return image
+    torch.set_default_device(device)
+    saved_size = image.size
+
+    model = Generator()
+    model.load_state_dict(torch.load(f'./stylegan/{style}_style.pth'))
+    model.to(device)
+
+    input_transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Resize(size=imsize, antialias=True),
+        transforms.Normalize(
+            mean=torch.tensor([0.5, 0.5, 0.5]),
+            std=torch.tensor([0.5, 0.5, 0.5])
+        )
+    ])
+
+    image = input_transform(image).to(device)
+    result = denormalize(model(image)).cpu().detach()
+    result = transforms.functional.to_pil_image(result)
+
+    return result.resize(saved_size)
+
 
 AVAILABLE_STYLES = ['monet', 'vangogh']
 async def style_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
