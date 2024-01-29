@@ -1,8 +1,10 @@
 import torch.nn as nn
 import itertools
+import torch
+from typing import List
 
 class DownsamplingBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels: int, out_channels: int):
         super().__init__()
 
         self.conv = nn.Sequential(
@@ -15,11 +17,11 @@ class DownsamplingBlock(nn.Module):
             nn.ReLU(inplace=True)
         )
     
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         return self.conv(x)
     
 class ResidualBlock(nn.Module):
-    def __init__(self, channels=256):
+    def __init__(self, channels: int = 256):
         super().__init__()
 
         self.conv = nn.Sequential(
@@ -36,11 +38,11 @@ class ResidualBlock(nn.Module):
             nn.InstanceNorm2d(channels)
         )
     
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         return self.conv(x) + x
 
 class UpsamplingBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels: int, out_channels: int):
         super().__init__()
 
         self.conv = nn.Sequential(
@@ -53,11 +55,11 @@ class UpsamplingBlock(nn.Module):
             nn.ReLU(inplace=True)
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         return self.conv(x)
 
 class Generator(nn.Module):
-    def __init__(self, in_channels=3, init_features=64):
+    def __init__(self, in_channels: int = 3, init_features: int = 64):
         super().__init__()
 
         self.model = nn.Sequential()
@@ -99,11 +101,11 @@ class Generator(nn.Module):
             )
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         return self.model(x)
 
 class Discriminator(nn.Module):
-    def  __init__(self, in_channels=3, features=[64, 128, 256, 512]):
+    def  __init__(self, in_channels: int = 3, features: List[int] = [64, 128, 256, 512]):
         super().__init__()
 
         self.model = nn.Sequential()
@@ -131,8 +133,8 @@ class Discriminator(nn.Module):
             )
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         return self.model(x)
 
-def denormalize(image):
+def denormalize(image: torch.Tensor):
     return image*0.5 + 0.5
