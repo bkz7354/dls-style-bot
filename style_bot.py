@@ -136,7 +136,14 @@ def setup_pytorch(bot_data: dict) -> None:
 
     # style transfer is blocking, so it will be run in a process pool 
     mp_context = get_context('spawn')
-    bot_data['proc_pool'] = ProcessPoolExecutor(max_workers=2, mp_context=mp_context)
+    try:
+        # try to get max_workers from enviroment
+        max_workers = int(os.environ['TG_BOT_MAX_WORKERS'])
+    except (KeyError, ValueError):
+        max_workers = 3
+    
+    bot_data['proc_pool'] = ProcessPoolExecutor(max_workers=max_workers, mp_context=mp_context)
+    logging.info("pool workers set to %i", max_workers)
 
     bot_data['styles'] = get_available_styles('./cyclegan')
 
