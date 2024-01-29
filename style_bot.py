@@ -5,40 +5,45 @@ import re
 import asyncio
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
+from typing import List
+from textwrap import dedent
 
 import dotenv
 from telegram.ext._utils.types import FilterDataDict
 import torch
 import torchvision.transforms as transforms
-from stylegan.networks import Generator, denormalize
+from cyclegan.networks import Generator, denormalize
 from PIL import Image
 
 
 from telegram import Message, Update
 from telegram.ext import ( 
     filters, MessageHandler, ApplicationBuilder, ContextTypes, 
-    CommandHandler, ConversationHandler
+    CommandHandler
 )
 
 
-welcome_message = """
-Welcome to GANStyleBot. Type /help for more info.
-"""
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handle /start command
     """
-    await context.bot.send_message(update.effective_chat.id, welcome_message)
+    await context.bot.send_message(
+        update.effective_chat.id, 
+        "Welcome to GANStyleBot. Type /help for more info."
+    )
 
-help_message = """
-Type /style_transfer to begin. The bot will ask you to send relevant photos.\
-Note that bot ignores files and albums. At any time you can type /cancel to\
-exit the conversation.
-"""
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handle /help command
     """
+
+    help_message = dedent(
+        f"""
+        Usage:
+        /style_transfer {{{','.join(context.bot_data['styles'])}}}:
+        You also need to attach the photo you want to change.
+        """
+    ).strip('\n')
     await context.bot.send_message(update.effective_chat.id, help_message)
 
 
@@ -64,7 +69,7 @@ def handle_transfer(image: Image, style: str, device: torch.device):
     saved_size = image.size
 
     model = Generator()
-    model.load_state_dict(torch.load(f'./stylegan/{style}_style.pth'))
+    model.load_state_dict(torch.load(f'./cyclegan/{style}_style.pth'))
     model.to(device)
 
     input_transform = transforms.Compose([
@@ -83,15 +88,16 @@ def handle_transfer(image: Image, style: str, device: torch.device):
     return result.resize(saved_size)
 
 
-AVAILABLE_STYLES = ['monet', 'vangogh']
 async def style_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     caption_words = update.message.caption.split()
     if len(caption_words) < 2:
         await update.effective_chat.send_message('You need to specify a style.')
         return
     style = caption_words[1]
-    if style not in AVAILABLE_STYLES:
-        await update.effective_chat.send_message('Available styles: {}.'.format(', '.join(AVAILABLE_STYLES)))
+    if style not in context.bot_data['styles']:
+        await update.effective_chat.send_message(
+            'Available styles: {}.'.format(', '.join(context.bot_data['styles']))
+        )
         return
 
     await update.effective_chat.send_message('Processing your image.')
@@ -111,6 +117,16 @@ async def style_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 
+def get_available_styles(folder: str) -> List[str]:
+    pattern = re.compile("([a-z]*)_style.pth$")
+
+    result = []
+    for item in os.listdir(folder):
+        match = pattern.match(item)
+        if match:
+            result.append(match[1])
+
+    return result
 
 def setup_pytorch(bot_data: dict) -> None:
     bot_data['device'] = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -120,6 +136,9 @@ def setup_pytorch(bot_data: dict) -> None:
 
     mp_context = get_context('spawn')
     bot_data['proc_pool'] = ProcessPoolExecutor(max_workers=2, mp_context=mp_context)
+
+    bot_data['styles'] = get_available_styles('./cyclegan')
+
     
 def PIL_to_bytes(image: Image) -> io.BytesIO:
     bio = io.BytesIO()
