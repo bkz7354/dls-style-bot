@@ -143,7 +143,7 @@ def setup_pytorch(bot_data: dict) -> None:
         max_workers = 3
     
     bot_data['proc_pool'] = ProcessPoolExecutor(max_workers=max_workers, mp_context=mp_context)
-    logging.info("pool workers set to %i", max_workers)
+    logging.info("Pool workers set to %i", max_workers)
 
     bot_data['styles'] = get_available_styles('./cyclegan')
 
