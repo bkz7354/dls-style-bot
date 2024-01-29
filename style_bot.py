@@ -24,19 +24,12 @@ from telegram.ext import (
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Handle /start command
-    """
     await context.bot.send_message(
         update.effective_chat.id, 
         "Welcome to GANStyleBot. Type /help for more info."
     )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Handle /help command
-    """
-
     help_message = dedent(
         f"""
         Usage:
@@ -47,7 +40,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await context.bot.send_message(update.effective_chat.id, help_message)
 
 
-async def style_no_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def style_command_no_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # this handler is called when user sends the command without attaching the photo
     await update.effective_chat.send_message(
         "Please attach the photo you want to change when you send the command."
     )
@@ -91,10 +85,13 @@ def handle_transfer(image: Image, style: str, device: torch.device):
 async def style_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     caption_words = update.message.caption.split()
     if len(caption_words) < 2:
+        # user did not specify a style
         await update.effective_chat.send_message('You need to specify a style.')
         return
+    
     style = caption_words[1]
     if style not in context.bot_data['styles']:
+        # user specified an unknown style
         await update.effective_chat.send_message(
             'Available styles: {}.'.format(', '.join(context.bot_data['styles']))
         )
@@ -102,12 +99,13 @@ async def style_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     await update.effective_chat.send_message('Processing your image.')
 
+    # get the image
     photo_id = update.message.photo[-1].file_id
     photo = await context.bot.get_file(photo_id)
     file = await photo.download_as_bytearray()
-
     image = Image.open(io.BytesIO(file))
 
+    # run style tranfer asynchronously
     logging.info('Handling style transfer for chat %s.', update.effective_chat.id)
     loop = asyncio.get_running_loop()
     result_img = await loop.run_in_executor(context.bot_data['proc_pool'],
@@ -118,6 +116,7 @@ async def style_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 def get_available_styles(folder: str) -> List[str]:
+    # scans the given folder for files named "{style_name}_style.pth"
     pattern = re.compile("([a-z]*)_style.pth$")
 
     result = []
@@ -129,11 +128,13 @@ def get_available_styles(folder: str) -> List[str]:
     return result
 
 def setup_pytorch(bot_data: dict) -> None:
+    # write some globals into bot_data
+
     bot_data['device'] = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.set_default_device(bot_data['device'])
-
     logging.info("Torch device is %s", bot_data['device'].type)
 
+    # style transfer is blocking, so it will be run in a process pool 
     mp_context = get_context('spawn')
     bot_data['proc_pool'] = ProcessPoolExecutor(max_workers=2, mp_context=mp_context)
 
@@ -141,6 +142,7 @@ def setup_pytorch(bot_data: dict) -> None:
 
     
 def PIL_to_bytes(image: Image) -> io.BytesIO:
+    # convert PIL image to bytesIO to send it to user
     bio = io.BytesIO()
 
     image.save(bio, 'JPEG')
@@ -174,7 +176,7 @@ def setup_logging() -> None:
         'level': bot_level
     }
     if 'TG_BOT_LOG_FILE' in os.environ:
-        basic_conf_args['filename'] = os.environ['TG_BOT_FILE']
+        basic_conf_args['filename'] = os.environ['TG_BOT_LOG_FILE']
     logging.basicConfig(**basic_conf_args)
 
     http_level = parse_log_level('HTTPX_LOG_LEVEL', logging.WARNING)
@@ -198,7 +200,8 @@ def main() -> None:
     start_handler = CommandHandler('start', start_command)
     help_handler = CommandHandler('help', help_command)
 
-    no_photo = CommandHandler('style_transfer', style_no_photo)
+    # handlers for style transfer
+    no_photo = CommandHandler('style_transfer', style_command_no_photo)
     command_filter = StyleFilter()
     style_handler = MessageHandler(filters.PHOTO & command_filter, style_command)
 
