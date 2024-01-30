@@ -63,12 +63,12 @@ def handle_transfer(image: Image, style: str, device: torch.device):
     saved_size = image.size
 
     model = Generator()
-    model.load_state_dict(torch.load(f'./cyclegan/{style}_style.pth'))
+    model.load_state_dict(torch.load(f'./cyclegan/{style}_style.pth', map_location=device))
     model.to(device)
 
     input_transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Resize(size=256, antialias=True),
+        # transforms.Resize(size=256, antialias=True),
         transforms.Normalize(
             mean=torch.tensor([0.5, 0.5, 0.5]),
             std=torch.tensor([0.5, 0.5, 0.5])
@@ -99,8 +99,18 @@ async def style_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     await update.effective_chat.send_message('Processing your image.')
 
+    try:
+        # get a suiltable image size
+        photo_id = next(
+            size.file_id for size in reversed(update.message.photo) 
+                if size.width <= context.bot_data['max_size'] and size.height <= context.bot_data['max_size'] 
+        )
+    except StopIteration:
+        # no suitable image size found
+        await update.effective_chat.send_message('Your image is too big')
+        return
+    
     # get the image
-    photo_id = update.message.photo[-1].file_id
     photo = await context.bot.get_file(photo_id)
     file = await photo.download_as_bytearray()
     image = Image.open(io.BytesIO(file))
@@ -127,6 +137,12 @@ def get_available_styles(folder: str) -> List[str]:
 
     return result
 
+def get_env_int(env_name: str, default: int):
+    try:
+        return int(os.environ[env_name])
+    except (KeyError, ValueError):
+        return default
+
 def setup_pytorch(bot_data: dict) -> None:
     # write some globals into bot_data
 
@@ -136,16 +152,15 @@ def setup_pytorch(bot_data: dict) -> None:
 
     # style transfer is blocking, so it will be run in a process pool 
     mp_context = get_context('spawn')
-    try:
-        # try to get max_workers from enviroment
-        max_workers = int(os.environ['TG_BOT_MAX_WORKERS'])
-    except (KeyError, ValueError):
-        max_workers = 3
+    max_workers = get_env_int('TG_BOT_MAX_WORKERS', 3)
     
     bot_data['proc_pool'] = ProcessPoolExecutor(max_workers=max_workers, mp_context=mp_context)
     logging.info("Pool workers set to %i", max_workers)
 
     bot_data['styles'] = get_available_styles('./cyclegan')
+
+    max_imsize = get_env_int('TG_BOT_MAX_IMSIZE', 1024)
+    bot_data['max_imsize'] = max_imsize
 
     
 def PIL_to_bytes(image: Image) -> io.BytesIO:
