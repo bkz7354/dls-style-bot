@@ -102,8 +102,9 @@ async def style_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     try:
         # get a suiltable image size
         photo_id = next(
-            size.file_id for size in reversed(update.message.photo) 
-                if size.width <= context.bot_data['max_size'] and size.height <= context.bot_data['max_size'] 
+            size.file_id for size in reversed(update.message.photo)
+                if size.width <= context.bot_data['max_imsize'] and 
+                    size.height <= context.bot_data['max_imsize'] 
         )
     except StopIteration:
         # no suitable image size found
