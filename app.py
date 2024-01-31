@@ -33,7 +33,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     help_message = dedent(
         f"""
         Usage:
-        /style_transfer {{{','.join(context.bot_data['styles'])}}}:
+        /transfer_style {{{','.join(context.bot_data['styles'])}}}:
         You also need to attach the photo you want to change.
         """
     ).strip('\n')
@@ -50,7 +50,7 @@ class StyleFilter(filters.MessageFilter):
     def __init__(self):
         super().__init__()
 
-        self.pattern = re.compile("^/style_transfer")
+        self.pattern = re.compile("^/transfer_style")
     
     def filter(self, message: Message) -> bool | FilterDataDict | None:
         if message.caption:
@@ -224,7 +224,7 @@ def main() -> None:
     help_handler = CommandHandler('help', help_command)
 
     # handlers for style transfer
-    no_photo = CommandHandler('style_transfer', style_command_no_photo)
+    no_photo = CommandHandler('transfer_style', style_command_no_photo)
     command_filter = StyleFilter()
     style_handler = MessageHandler(filters.PHOTO & command_filter, style_command)
 
