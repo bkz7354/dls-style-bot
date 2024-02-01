@@ -6,7 +6,7 @@ and [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram
 Original realization of CycleGAN architecture
 and the relevant paper can be found [here](https://junyanz.github.io/CycleGAN/). I wrote my own realization and used datasets from the original paper to train it. The training notebooks and
 generated sample images can be found in a
-[separate repository](https://example.com).
+[separate repository](https://github.com/bkz7354/dls-cyclegan).
 
 ## Installation and configuration
 
@@ -16,13 +16,13 @@ bot on cpu.
 
 #### Install cpu-only
 ```
-git clone TBD
+git clone https://github.com/bkz7354/dls-style-bot
 cd style_bot
 python3 -m pip install -r requirements_no_cuda.txt --extra-index-url https://download.pytorch.org/whl/cpu
 ```
 #### Install with cuda
 ```
-git clone TBD
+git clone https://github.com/bkz7354/dls-style-bot
 cd style_bot
 python3 -m pip install -r requirements.txt
 ```
