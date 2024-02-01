@@ -1,5 +1,5 @@
 ## Style bot for DLS
-### [Training repository](https://example.com) | [Kaggle notebook](https://www.kaggle.com/code/kb7354/cyclegan/notebook)
+### [Training repository](https://github.com/bkz7354/dls-cyclegan) | [Kaggle notebook](https://www.kaggle.com/code/kb7354/cyclegan/notebook)
 This telegram bot uses StyleGAN to transfer styles from paintings to photos (available styles are Monet and Vangogh). 
 It is built using [Pytorch](https://pytorch.org/)
 and [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) libraries.
