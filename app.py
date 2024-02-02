@@ -39,6 +39,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     ).strip('\n')
     await context.bot.send_message(update.effective_chat.id, help_message)
 
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    logging.error("Exception while handling an update:", exc_info=context.error)
+
+    await update.effective_chat.send_message("The bot encountered an error while handling your request.")
+
 
 async def style_command_no_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # this handler is called when user sends the command without attaching the photo
@@ -88,6 +93,7 @@ async def style_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         # user did not specify a style
         await update.effective_chat.send_message('You need to specify a style.')
         return
+    
     
     style = caption_words[1]
     if style not in context.bot_data['styles']:
@@ -232,6 +238,8 @@ def main() -> None:
     application.add_handler(help_handler)
     application.add_handler(style_handler)
     application.add_handler(no_photo)
+
+    application.add_error_handler(error_handler)
 
     try:
         application.run_polling()
